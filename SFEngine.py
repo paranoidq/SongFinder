@@ -1,11 +1,16 @@
 from scipy.io import wavfile
+from scipy.io import fft
 from scipy.fftpack import fft
 from sys import argv
 from collections import Counter
 import glob
 import pickle
+import logging
 
-class SFEngine():
+logging.basicConfig(level=logging.INFO)
+
+
+class SFEngine(object):
     """SongFinder Engine"""
     def __init__(self):
         self.freq_dict = {}
@@ -15,24 +20,25 @@ class SFEngine():
             try:
                 self.sample(song, 0, 0, self.store_feature)
             except:
-                print "Error in processing: " + song
+                print("Error in processing: " + song)
 
     def search(self, target):
+        logging.info('searching...')
         target_tuple = []
         if not target.endswith(".wav"):
-            print "Only wav file is supported"
+            print("Only wav file is supported")
 
         def callback(filename, start, feature):
             for freq in feature:
                 if freq not in self.freq_dict:
                     continue
-                for (origianl_filename, origianl_time) in self.freq_dict[freq]:
-                    target_tuple.append((origianl_filename, (origianl_time - int(start)) / 44100))
+                for (original_filename, original_time) in self.freq_dict[freq]:
+                    target_tuple.append((original_filename, (original_time - int(start)) / 44100))
 
         self.sample(target, 0, 0, callback)
         counter = Counter(target_tuple)
         for pair, count in counter.most_common(5):
-            print pair[0].split(".")[0], pair[1]#, count
+            print(pair[0].split(".")[0], pair[1])  # count
 
     def save(self, filename):
         with open(filename, 'wb') as handle:
@@ -48,7 +54,7 @@ class SFEngine():
         length = len(dst)/2  
         normalized = abs(dst[:(length-1)])
         feature = [ normalized[:50].argmax(), \
-                    50 +  normalized[50:100].argmax(), \
+                    50 + normalized[50:100].argmax(), \
                     100 + normalized[100:200].argmax(), \
                     200 + normalized[200:300].argmax(), \
                     300 + normalized[300:400].argmax(), \
@@ -56,10 +62,10 @@ class SFEngine():
         return feature
 
     def read_and_scale(self, filename):
-        rate, data = wavfile.read(filename) # load the data
+        rate, data = wavfile.read(filename)  # load the data
         bits = data.dtype.itemsize * 8
         if data.ndim == 2:
-            data = data.T[0] # this is a two channel soundtrack, I get the first track
+            data = data.T[0]  # this is a two channel soundtrack, I get the first track
         scaled = data / (2. ** (bits - 1)) 
         return scaled
 
@@ -68,11 +74,9 @@ class SFEngine():
             if freq not in self.freq_dict:
                 self.freq_dict[freq] = []
 
-            self.freq_dict[freq].append((filename, start))
+            self.freq_dict[freq].append((filename, start))  # append tuple
 
-
-    def sample(self, filename, start_second, duration = 5, callback = None):
-        
+    def sample(self, filename, start_second, duration= 5, callback= None):
         start = start_second * 44100
         if duration == 0:
             end = 1e15
@@ -83,7 +87,7 @@ class SFEngine():
         length = scaled.size
         while start < min(length, end):
             feature = self.extract_feature(scaled, start, interval)
-            if callback != None:
+            if callback is not None:
                 callback(filename, start, feature)
             start += interval
 
